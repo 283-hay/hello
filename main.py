@@ -8,7 +8,9 @@ with open('requirements.txt', 'r', encoding='utf-8') as file:
     # ファイルの内容を読み込む
     content = file.read()
 
-# ファイルの内容を表示する
-print(content)
-
 st.title(content)
+
+# 追記モードでファイルを開く
+with open('requirements.txt', 'a', encoding='utf-8') as file:
+    # 追記する内容
+    file.write('\n新しい内容を追記します。')
