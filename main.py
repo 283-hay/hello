@@ -89,6 +89,10 @@ def switch_item(value):
 with open(switch_info(page_id), 'r', encoding='utf-8') as file:
     # ファイルの内容を読み込みJSONデータを辞書に変換
     data = json.loads(file.read())
+    # data = {
+    # '名前': ['太郎', '花子', '次郎'],
+    # '年齢': [25, 30, 22]
+    # }
     # データフレームに変換
     df = pd.json_normalize(data[switch_item(page_id)])
 
