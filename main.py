@@ -1,8 +1,8 @@
 import streamlit as st
 import pandas  as pd
 import json
-from st_aggrid import AgGrid, GridUpdateMode
-from st_aggrid.grid_options_builder import GridOptionsBuilder
+# from st_aggrid import AgGrid, GridUpdateMode
+# from st_aggrid.grid_options_builder import GridOptionsBuilder
 
 key = "default"
 
@@ -89,10 +89,6 @@ def switch_item(value):
 with open(switch_info(page_id), 'r', encoding='utf-8') as file:
     # ファイルの内容を読み込みJSONデータを辞書に変換
     data = json.loads(file.read())
-    # data = {
-    # '名前': ['太郎', '花子', '次郎'],
-    # '年齢': [25, 30, 22]
-    # }
     # データフレームに変換
     df = pd.json_normalize(data[switch_item(page_id)])
 
@@ -113,50 +109,40 @@ df.columns = switch_columns(page_id)
 # df1 = st.empty()
 # df1.write(df)
 
-# グリッドオプションを作成
-gb = GridOptionsBuilder.from_dataframe(df)
-gb.configure_default_column(editable=True)  # すべてのカラムを編集可能に設定
-grid_options = gb.build()
+# 行単位で編集ボタンを追加
+for i in range(len(df)):
+    cols = st.columns(len(df.columns) + 1)
+    for j, col in enumerate(df.columns):
+        cols[j].write(df.at[i, col])
+    if cols[-1].button(f'編集 (行 {i+1})'):
+        # 編集可能なデータフレームを表示する関数
+        def editable_dataframe(df, row_index):
+            edited_df = df.copy()
+            cols = st.columns(len(df.columns))
+            for j, col in enumerate(df.columns):
+                edited_df.at[row_index, col] = cols[j].text_input(f'{col} (行 {row_index+1})', value=df.at[row_index, col])
+            return edited_df
 
-# CSSを使用して余白をなくす
-# st.markdown(
-#     """
-#     <style>
-#     .ag-theme-streamlit .ag-root-wrapper {
-#         padding: 0px;
-#     }
-#     .ag-theme-streamlit .ag-header {
-#         padding: 0px;
-#     }
-#     .ag-theme-streamlit .ag-body-viewport {
-#         padding: 0px;
-#     }
-#     </style>
-#     """,
-#     unsafe_allow_html=True
-# )
+        # 編集可能なデータフレームを表示
+        edited_df = editable_dataframe(df, i)
 
-# 編集可能なグリッドを表示
-grid_response = AgGrid(df, gridOptions=grid_options, update_mode=GridUpdateMode.VALUE_CHANGED)
+        # 編集後のデータフレームを表示
+        st.write('編集後のデータフレーム:')
+        st.write(edited_df)
 
-# 編集後のデータフレームを取得
-updated_df = grid_response['data']
-
-# JSONファイルに保存する関数
-def save_to_json(data, filename):
-    with open(filename, 'w', encoding='utf-8') as file:
-        json.dump(data, file, ensure_ascii=False, indent=4)
-
-# 保存ボタンを配置
-if st.button('保存'):
-    # データフレームを辞書に変換
-    updated_data = updated_df.to_dict(orient='records')
-    # 元のJSONデータを更新
-    data[switch_item("page_top")] = updated_data
-    # JSONファイルに保存
-    save_to_json(data, switch_info("page_top"))
-    st.success('データが保存されました。')
-
+        # 保存ボタンを配置
+        if st.button('保存'):
+            # データフレームを辞書に変換
+            updated_data = edited_df.to_dict(orient='records')
+            # JSONファイルに保存する関数
+            def save_to_json(data, filename):
+                with open(filename, 'w', encoding='utf-8') as file:
+                    json.dump(data, file, ensure_ascii=False, indent=4)
+            # 元のJSONデータを更新
+            data[switch_item(page_id)] = updated_data
+            # JSONファイルに保存
+            save_to_json(data, switch_info(page_id))
+            st.success('データが保存されました。')
 
 if page_id in ["default", "page_top"]:
     st.write("智香ちゃん")
