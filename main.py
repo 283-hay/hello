@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas  as pd
 import json
-import saving
+# import saving
 
 page_id = []
 
@@ -103,7 +103,7 @@ def next_button_click():
     # subprocess.run(["python", "saving.py"])
 
     st.session_state.checkbox = False
-    saving.greet()
+    # saving.greet()
     print("動いた")
 
 # セッションステートの初期化
