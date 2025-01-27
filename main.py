@@ -45,7 +45,7 @@ if st.session_state[key] != "unchecked":
 # titleの切替
 def switch_title(value):
     switcher = {
-        "default": "トップページ",
+        "default": "初回ページ",
         "page_top": "トップページ",
         "page_saving": "貯金",
         "page_living": "生活費",
@@ -53,10 +53,7 @@ def switch_title(value):
     return switcher.get(value, "Invalid value")
 
 # titleを取得し表示
-if st.session_state[key] == "unchecked":
-    st.title("初回ページ")
-else:
-    st.title(switch_title(page_id))
+st.title(switch_title(page_id))
 
 #####
 # body表示関連
@@ -84,12 +81,21 @@ def switch_item(value):
 
 # データフレームの取得
 with open(switch_info(page_id), 'r', encoding='utf-8') as file:
-    # ファイルの内容を読み込みJSONデータを辞書に変換
-    # data = json.loads(file.read())
-    data = json.loads(file.read()).get(switch_item(page_id), [])
+    # ファイルの内容をJSONとして読み込む
+    data_item = json.loads(file.read())
+    def get_keys(data_item):
+        if switch_item(page_id) in data_item and len(data_item[switch_item(page_id)]) > 0:
+            return list(data_item[switch_item(page_id)][0].keys())
+        return []
+
+    # 関数を使用してキーのリストを取得
+    keys = get_keys(data_item)
+    
+    # JSONデータを辞書に変換
+    data = data_item.get(switch_item(page_id), [])
     # データフレームに変換
     # df = pd.json_normalize(data[switch_item(page_id)])
-    
+
 # カラム名の切替
 # def switch_columns(value):
 #     switcher = {
@@ -118,23 +124,18 @@ class ItemListPage:
         # テーブルの表示
         col_size = [1, 2, 2, 2, 2]
         columns = st.columns(col_size)
-        headers = ["優先順位", "項目名", "開始日（予定）", "開始日（実績）", ""]
+        # JSONから取得したkey名を項目名とする
+        headers = keys
         for col, field_name in zip(columns, headers):
             col.write(field_name)
 
         for index, item in enumerate(self.data):
-            (
-                priority_col,
-                name_col,
-                start_col,
-                started_col,
-                button_col,
-            ) = st.columns(col_size)
-            priority_col.write(item["優先順位"])
-            name_col.write(item["項目名"])
-            start_col.write(item["開始日（予定）"])
-            started_col.write(item["開始日（実績）"])
-            if button_col.button("編集", key=index):
+            cols = st.columns(col_size)
+            cols[0].write(item[keys[0]]) # ループで取得したい
+            cols[1].write(item[keys[1]])
+            cols[2].write(item[keys[2]])
+            cols[3].write(item[keys[3]])
+            if cols[-1].button("編集", key=index):
                 st.session_state[f"edit_{index}"] = not st.session_state.get(f"edit_{index}", False)
 
             if st.session_state.get(f"edit_{index}", False):
@@ -142,17 +143,17 @@ class ItemListPage:
 
     def _edit_item(self, index: int) -> None:
         item = self.data[index]
-        st.write(f"編集: {item['優先順位']}")
-        new_priority_col = int(st.text_input("優先順位", value=item["優先順位"]))
-        new_name_col = st.text_input("項目名", value=item["項目名"])
-        new_start_col = st.text_input("開始日（予定）", value=item["開始日（予定）"])
-        new_started_col = st.text_input("開始日（実績）", value=item["開始日（実績）"])
+        st.write(f"編集: {item[keys[0]]}")
+        new_priority_col = int(st.text_input(keys[0], value=item[keys[0]])) # ループで生成できないか
+        new_name_col = st.text_input(keys[1], value=item[keys[1]])
+        new_start_col = st.text_input(keys[2], value=item[keys[2]])
+        new_started_col = st.text_input(keys[3], value=item[keys[3]])
 
         if st.button("保存", key=f"save_{index}"):
-            self.data[index]["優先順位"] = new_priority_col
-            self.data[index]["項目名"] = new_name_col
-            self.data[index]["開始日（予定）"] = new_start_col
-            self.data[index]["開始日（実績）"] = new_started_col
+            self.data[index][keys[0]] = new_priority_col  # ループで取得できないか
+            self.data[index][keys[1]] = new_name_col
+            self.data[index][keys[2]] = new_start_col
+            self.data[index][keys[3]] = new_started_col
             st.success("データが保存されました。")
             
             # JSONファイルに保存する関数
@@ -166,7 +167,22 @@ class ItemListPage:
 
             # 編集状態をリセット
             st.session_state[f"edit_{index}"] = False
-            # st.session_state.get(f"edit_{index}", False)
+
+            # ページを再レンダリング
+            # st.experimental_set_query_params()
+
+# 保存処理時に状態のリセットが行われないのか、描画が元に戻らない
+
+
+
+
+
+
+
+
+
+
+
 
 # ページの作成と表示
 page = ItemListPage("翼2025抱負", sorted(data, key=lambda x: x['優先順位']))
