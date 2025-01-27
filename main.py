@@ -62,9 +62,6 @@ else:
 # body表示関連
 #####
 
-if page_id in ["default", "page_top"]:
-    st.write("翼")
-
 # 取得ファイルの切替
 def switch_info(value):
     switcher = {
@@ -88,66 +85,97 @@ def switch_item(value):
 # データフレームの取得
 with open(switch_info(page_id), 'r', encoding='utf-8') as file:
     # ファイルの内容を読み込みJSONデータを辞書に変換
-    data = json.loads(file.read())
+    # data = json.loads(file.read())
+    data = json.loads(file.read()).get(switch_item(page_id), [])
     # データフレームに変換
-    df = pd.json_normalize(data[switch_item(page_id)])
-
+    # df = pd.json_normalize(data[switch_item(page_id)])
+    
 # カラム名の切替
-def switch_columns(value):
-    switcher = {
-        "default": ['優先順位', '項目名', '開始日（予定）'],
-        "page_top": ['優先順位', '項目名', '開始日（予定）'],
-        "page_saving": ['年月', '銀行', 'NISA'],
-        "page_living": ['年月', '電気', '水道', 'ガス']
-    }
-    return switcher.get(value, "Invalid value")
+# def switch_columns(value):
+#     switcher = {
+#         "default": ['優先順位', '項目名', '開始日（予定）'],
+#         "page_top": ['優先順位', '項目名', '開始日（予定）'],
+#         "page_saving": ['年月', '銀行', 'NISA'],
+#         "page_living": ['年月', '電気', '水道', 'ガス']
+#     }
+#     return switcher.get(value, "Invalid value")
 
 # カラム名の設定
-df.columns = switch_columns(page_id)
+# df.columns = switch_columns(page_id)
 
-# データフレームの表示
-# df1 = st.empty()
-# df1.write(df)
+# df = st.empty()
+# df.write(df)
 
-# 行単位で編集ボタンを追加
-for i in range(len(df)):
-    cols = st.columns(len(df.columns) + 1)
-    for j, col in enumerate(df.columns):
-        cols[j].write(df.at[i, col])
-    if cols[-1].button(f'編集 (行 {i+1})'):
-        # 編集可能なデータフレームを表示する関数
-        def editable_dataframe(df, row_index):
-            edited_df = df.copy()
-            cols = st.columns(len(df.columns))
-            for j, col in enumerate(df.columns):
-                edited_df.at[row_index, col] = cols[j].text_input(f'{col} (行 {row_index+1})', value=df.at[row_index, col])
-            return edited_df
+class ItemListPage:
+    def __init__(self, title, data):
+        self.title = title
+        self.data = data
 
-        # 編集可能なデータフレームを表示
-        edited_df = editable_dataframe(df, i)
+    def render(self) -> None:
+        # タイトルの表示
+        st.title(self.title)
 
-        # 編集後のデータフレームを表示
-        st.write('編集後のデータフレーム:')
-        st.write(edited_df)
+        # テーブルの表示
+        col_size = [1, 2, 2, 2, 2]
+        columns = st.columns(col_size)
+        headers = ["優先順位", "項目名", "開始日（予定）", "開始日（実績）", ""]
+        for col, field_name in zip(columns, headers):
+            col.write(field_name)
 
-        # 保存ボタンを配置
-        if st.button('保存'):
-            # データフレームを辞書に変換
-            updated_data = edited_df.to_dict(orient='records')
+        for index, item in enumerate(self.data):
+            (
+                priority_col,
+                name_col,
+                start_col,
+                started_col,
+                button_col,
+            ) = st.columns(col_size)
+            priority_col.write(item["優先順位"])
+            name_col.write(item["項目名"])
+            start_col.write(item["開始日（予定）"])
+            started_col.write(item["開始日（実績）"])
+            if button_col.button("編集", key=index):
+                st.session_state[f"edit_{index}"] = not st.session_state.get(f"edit_{index}", False)
+
+            if st.session_state.get(f"edit_{index}", False):
+                self._edit_item(index)
+
+    def _edit_item(self, index: int) -> None:
+        item = self.data[index]
+        st.write(f"編集: {item['優先順位']}")
+        new_priority_col = int(st.text_input("優先順位", value=item["優先順位"]))
+        new_name_col = st.text_input("項目名", value=item["項目名"])
+        new_start_col = st.text_input("開始日（予定）", value=item["開始日（予定）"])
+        new_started_col = st.text_input("開始日（実績）", value=item["開始日（実績）"])
+
+        if st.button("保存", key=f"save_{index}"):
+            self.data[index]["優先順位"] = new_priority_col
+            self.data[index]["項目名"] = new_name_col
+            self.data[index]["開始日（予定）"] = new_start_col
+            self.data[index]["開始日（実績）"] = new_started_col
+            st.success("データが保存されました。")
+            
             # JSONファイルに保存する関数
             def save_to_json(data, filename):
                 with open(filename, 'w', encoding='utf-8') as file:
                     json.dump(data, file, ensure_ascii=False, indent=4)
             # 元のJSONデータを更新
-            data[switch_item(page_id)] = updated_data
+            updated_data = {switch_item(page_id): self.data}
             # JSONファイルに保存
-            save_to_json(data, switch_info(page_id))
-            st.success('データが保存されました。')
+            save_to_json(updated_data, switch_info(page_id))
 
-if page_id in ["default", "page_top"]:
-    st.write("智香ちゃん")
-    df2 = st.empty()
-    df2.write(df)
+            # 編集状態をリセット
+            st.session_state[f"edit_{index}"] = False
+            # st.session_state.get(f"edit_{index}", False)
+
+# ページの作成と表示
+page = ItemListPage("翼2025抱負", sorted(data, key=lambda x: x['優先順位']))
+page.render()
+
+# if page_id in ["default", "page_top"]:
+#     st.write("智香ちゃん")
+#     df2 = st.empty()
+#     df2.write(df)
 
 # img = Image.open('.jpg')
 # st.image(img, caption='', use_column_sidth=True)
