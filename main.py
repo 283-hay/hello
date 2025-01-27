@@ -131,10 +131,11 @@ class ItemListPage:
 
         for index, item in enumerate(self.data):
             cols = st.columns(col_size)
-            cols[0].write(item[keys[0]]) # ループで取得したい
+            cols[0].write(item[keys[0]]) # ループで取得したい 数字の時にカンマ欲しい
             cols[1].write(item[keys[1]])
             cols[2].write(item[keys[2]])
-            cols[3].write(item[keys[3]])
+            if len(keys) > 3:
+                cols[3].write(item[keys[3]])
             if cols[-1].button("編集", key=index):
                 st.session_state[f"edit_{index}"] = not st.session_state.get(f"edit_{index}", False)
 
@@ -144,16 +145,22 @@ class ItemListPage:
     def _edit_item(self, index: int) -> None:
         item = self.data[index]
         st.write(f"編集: {item[keys[0]]}")
-        new_priority_col = int(st.text_input(keys[0], value=item[keys[0]])) # ループで生成できないか
-        new_name_col = st.text_input(keys[1], value=item[keys[1]])
-        new_start_col = st.text_input(keys[2], value=item[keys[2]])
-        new_started_col = st.text_input(keys[3], value=item[keys[3]])
+        # ループで生成できないか valueの型考慮が難しい
+        if page_id in ["default", ""]:
+            new_priority_col = int(st.text_input(keys[0], value=item[keys[0]])) 
+        else:
+            new_priority_col = st.text_input(keys[0], value=item[keys[0]])
+        new_col_0 = st.text_input(keys[1], value=item[keys[1]])
+        new_col_1 = st.text_input(keys[2], value=item[keys[2]])
+        if len(keys) > 3:
+            new_col_2 = st.text_input(keys[3], value=item[keys[3]])
 
         if st.button("保存", key=f"save_{index}"):
-            self.data[index][keys[0]] = new_priority_col  # ループで取得できないか
-            self.data[index][keys[1]] = new_name_col
-            self.data[index][keys[2]] = new_start_col
-            self.data[index][keys[3]] = new_started_col
+            self.data[index][keys[0]] = new_priority_col  # ループで取得できないか いける
+            self.data[index][keys[1]] = new_col_0
+            self.data[index][keys[2]] = new_col_1
+            if len(keys) > 3:
+                self.data[index][keys[3]] = new_col_2
             st.success("データが保存されました。")
             
             # JSONファイルに保存する関数
@@ -171,21 +178,10 @@ class ItemListPage:
             # ページを再レンダリング
             # st.experimental_set_query_params()
 
-# 保存処理時に状態のリセットが行われないのか、描画が元に戻らない
-
-
-
-
-
-
-
-
-
-
-
+            # 保存処理時に状態のリセットが行われないのか、描画が元に戻らない
 
 # ページの作成と表示
-page = ItemListPage("翼2025抱負", sorted(data, key=lambda x: x['優先順位']))
+page = ItemListPage("翼2025抱負", sorted(data, key=lambda x: x[keys[0]]))
 page.render()
 
 # if page_id in ["default", "page_top"]:
