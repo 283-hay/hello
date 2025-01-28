@@ -5,7 +5,7 @@ import json
 # from st_aggrid.grid_options_builder import GridOptionsBuilder
 
 key = "default"
-
+st.title(st.secrets["user"])
 #####
 # 各制御関連の定義
 #####
