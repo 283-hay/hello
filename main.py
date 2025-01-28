@@ -1,7 +1,6 @@
 import streamlit as st
 import pandas  as pd
 import json
-import time
 # from st_aggrid import AgGrid, GridUpdateMode
 # from st_aggrid.grid_options_builder import GridOptionsBuilder
 
@@ -11,10 +10,8 @@ key = "isNotLoggedIn"
 # ログイン関連の定義
 #####
 
-# ユーザー名とパスワードの辞書
-users = {
-    "hay": ""
-}
+# secrets.tomlからユーザー名とパスワードの一覧を取得
+users = st.secrets["users"]
 
 # セッションステートにログイン状態を保存
 if "logged_in" not in st.session_state:
@@ -25,10 +22,6 @@ def login(username, password):
     if username in users and users[username] == password:
         st.session_state.logged_in = True
         st.success("ログイン成功！")
-        # time.sleep(2)
-        # st.experimental_set_query_params()  # 画面を再レンダリング
-        # login(username, password)
-        
         st.session_state[key] = "unchecked"
     else:
         st.error("ユーザー名またはパスワードが間違っています。")
@@ -36,6 +29,7 @@ def login(username, password):
 # ログアウト関数
 def logout():
     st.session_state.logged_in = False
+    st.session_state[key] = "isNotLoggedIn"
     st.success("ログアウトしました。")
 
 # ログイン画面の表示
@@ -46,15 +40,8 @@ if not st.session_state.logged_in:
     if st.button("ログイン"):
         login(username, password)
 else:
-    # st.title("ようこそ！")
-    st.write("ログインしています。")
     if st.button("ログアウト"):
         logout()
-
-# if st.session_state.logged_in == True:
-#     login(username, password)
-
-
 
 #####
 # 各制御関連の定義
@@ -62,7 +49,6 @@ else:
 
 # 初回画面か否かの判定に使用するkey
 if key not in st.session_state:
-    # st.session_state[key] = "unchecked"
     st.session_state[key] = "isNotLoggedIn"
 
 # ページ切替に使用するpage_id
@@ -77,11 +63,10 @@ if st.session_state[key] == "unchecked":
 pages = dict(
     page_top="トップページ",
     page_saving="貯金",
-    page_living="生活費",
+    page_living="光熱費",
 )
 
 # st.sidebar.*でサイドバーに表示
-# if st.session_state[key] != "unchecked":
 if st.session_state[key] not in ["isNotLoggedIn", "unchecked"]:
     page_id = st.sidebar.selectbox( 
         "ページ切替",
@@ -98,10 +83,10 @@ if st.session_state[key] not in ["isNotLoggedIn", "unchecked"]:
 def switch_title(value):
     switcher = {
         "isNotLoggedIn": "",
-        "default": "初回ページ",
+        "default": "2025抱負",
         "page_top": "トップページ",
         "page_saving": "貯金",
-        "page_living": "生活費",
+        "page_living": "光熱費",
     }
     return switcher.get(value, "Invalid value")
 
@@ -150,26 +135,57 @@ if st.session_state[key] != "isNotLoggedIn":
         # データフレームに変換
         # df = pd.json_normalize(data[switch_item(page_id)])
 
-# カラム名の切替
-# def switch_columns(value):
-#     switcher = {
-#         "default": ['優先順位', '項目名', '開始日（予定）'],
-#         "page_top": ['優先順位', '項目名', '開始日（予定）'],
-#         "page_saving": ['年月', '銀行', 'NISA'],
-#         "page_living": ['年月', '電気', '水道', 'ガス']
-#     }
-#     return switcher.get(value, "Invalid value")
-
-# カラム名の設定
-# df.columns = switch_columns(page_id)
-
+# データフレームを表示する場合
 # df = st.empty()
 # df.write(df)
 
+
+
+
+
+# サンプルデータ
+data1 = {
+    "savings": [
+        {"date": "2024年10月", "bank": "2377829", "nisa": "1949990"},
+        {"date": "2024年11月", "bank": "2287829", "nisa": "2249990"},
+        {"date": "2024年12月", "bank": "2607829", "nisa": "2549990"},
+        {"date": "2025年01月", "bank": "2547808", "nisa": "2689990"},
+        {"date": "2025年02月", "bank": "", "nisa": ""},
+        {"date": "2025年03月", "bank": "", "nisa": ""}
+    ]
+}
+
+data2 = {
+    "expenses": [
+        {"date": "2024年10月", "food": "50000", "rent": "100000"},
+        {"date": "2024年11月", "food": "55000", "rent": "100000"},
+        {"date": "2024年12月", "food": "60000", "rent": "100000"},
+        {"date": "2025年01月", "food": "65000", "rent": "100000"},
+        {"date": "2025年02月", "food": "70000", "rent": "100000"},
+        {"date": "2025年03月", "food": "75000", "rent": "100000"}
+    ]
+}
+
+# キーのリストを取得する関数
+def get_keys(data_item):
+    if len(data_item) > 0:
+        return list(data_item[0].keys())
+    return []
+
+
+
 class ItemListPage:
-    def __init__(self, title, data):
+    # def __init__(self, title, data):
+    #     self.title = title
+    #     self.data = data
+
+
+
+    def __init__(self, title, data, keys):
         self.title = title
         self.data = data
+        self.keys = keys
+
 
     def render(self) -> None:
         # タイトルの表示
@@ -180,16 +196,28 @@ class ItemListPage:
         columns = st.columns(col_size)
         # JSONから取得したkey名を項目名とする
         headers = keys
+
+        def format_number_with_commas(value):
+            try:
+                # 文字列を整数に変換
+                number = int(value)
+                # カンマ区切りの形式で表示
+                formatted_number = "{:,}".format(number)
+                return formatted_number
+            except ValueError:
+                # 変換できない場合は元の文字列を返す
+                return value
+
         for col, field_name in zip(columns, headers):
             col.write(field_name)
 
         for index, item in enumerate(self.data):
             cols = st.columns(col_size)
             cols[0].write(item[keys[0]]) # ループで取得したい 数字の時にカンマ欲しい
-            cols[1].write(item[keys[1]])
-            cols[2].write(item[keys[2]])
+            cols[1].write(format_number_with_commas(item[keys[1]])) # 数字の時はカンマにする例
+            cols[2].write(format_number_with_commas(item[keys[2]]))
             if len(keys) > 3:
-                cols[3].write(item[keys[3]])
+                cols[3].write(format_number_with_commas(item[keys[3]]))
             if cols[-1].button("編集", key=index):
                 st.session_state[f"edit_{index}"] = not st.session_state.get(f"edit_{index}", False)
 
@@ -231,21 +259,34 @@ class ItemListPage:
 
             # ページを再レンダリング
             # st.experimental_set_query_params()
-
             # 保存処理時に状態のリセットが行われないのか、描画が元に戻らない
 
 # ページの作成と表示
 if st.session_state[key] != "isNotLoggedIn":
-    page = ItemListPage(switch_title(page_id), sorted(data, key=lambda x: x[keys[0]]))
+    # page = ItemListPage(switch_title(page_id), sorted(data, key=lambda x: x[keys[0]]))
+    # page.render()
+
+
+
+
+
+    keys1 = get_keys(data)
+    page = ItemListPage(switch_title(page_id), sorted(data, key=lambda x: x[keys[0]]), keys1)
     page.render()
 
-# if page_id in ["default", "page_top"]:
-#     st.write("智香ちゃん")
-#     df2 = st.empty()
-#     df2.write(df)
+    # keys2 = get_keys(data)
+    # page2 = ItemListPage(switch_title(page_id), sorted(data, key=lambda x: x[keys[0]]), keys2)
+    # page2.render()
 
-# img = Image.open('.jpg')
-# st.image(img, caption='', use_column_sidth=True)
+# keys1 = get_keys(data1["savings"])
+# page1 = ItemListPage("貯金", data1["savings"], keys1)
+# page1.render()
+
+# keys2 = get_keys(data2["expenses"])
+# page2 = ItemListPage("生活費", data2["expenses"], keys2)
+
+
+
 
 #####
 # 初回画面の表示関連
@@ -256,7 +297,6 @@ def next_button_click():
     st.session_state[key] = "checked"
    
 # 内容確認チェック後に次へボタンを表示する
-if st.session_state[key] != "isNotLoggedIn":
-    if page_id == "default":
-        if st.checkbox('内容を確認した'): 
-            st.button('次へ', on_click=next_button_click)
+if st.session_state[key] != "isNotLoggedIn" and st.session_state[key] == "unchecked":
+    if st.checkbox('内容を確認した'): 
+        st.button('次へ', on_click=next_button_click)
