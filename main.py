@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import json
+from st_aggrid import AgGrid, GridUpdateMode
 
 # カスタムCSSを追加
 st.markdown(
