@@ -1,31 +1,8 @@
 import streamlit as st
-import pandas as pd
+import pandas  as pd
 import json
-from st_aggrid import AgGrid, GridUpdateMode
-
-# カスタムCSSを追加
-st.markdown(
-    """
-    <style>
-    @media screen and (max-width: 600px) {
-        .custom-font {
-            font-size: 12px;
-        }
-    }
-    @media screen and (min-width: 601px) and (max-width: 1200px) {
-        .custom-font {
-            font-size: 16px;
-        }
-    }
-    @media screen and (min-width: 1201px) {
-        .custom-font {
-            font-size: 20px;
-        }
-    }
-    </style>
-    """,
-    unsafe_allow_html=True
-)
+# from st_aggrid import AgGrid, GridUpdateMode
+# from st_aggrid.grid_options_builder import GridOptionsBuilder
 
 key = "default"
 
@@ -54,11 +31,11 @@ pages = dict(
 
 # st.sidebar.*でサイドバーに表示
 if st.session_state[key] != "unchecked":
-    page_id = st.sidebar.selectbox(
+    page_id = st.sidebar.selectbox( 
         "ページ切替",
         ["page_saving", "page_living", "page_top"],
         # 描画する項目を日本語に変換
-        format_func=lambda page_id: pages[page_id],
+        format_func=lambda page_id: pages[page_id], 
     )
 
 #####
@@ -117,28 +94,48 @@ with open(switch_info(page_id), 'r', encoding='utf-8') as file:
     # JSONデータを辞書に変換
     data = data_item.get(switch_item(page_id), [])
     # データフレームに変換
-    df = pd.DataFrame(data)
+    # df = pd.json_normalize(data[switch_item(page_id)])
+
+# カラム名の切替
+# def switch_columns(value):
+#     switcher = {
+#         "default": ['優先順位', '項目名', '開始日（予定）'],
+#         "page_top": ['優先順位', '項目名', '開始日（予定）'],
+#         "page_saving": ['年月', '銀行', 'NISA'],
+#         "page_living": ['年月', '電気', '水道', 'ガス']
+#     }
+#     return switcher.get(value, "Invalid value")
+
+# カラム名の設定
+# df.columns = switch_columns(page_id)
+
+# df = st.empty()
+# df.write(df)
 
 class ItemListPage:
-    def __init__(self, title, data, keys):
+    def __init__(self, title, data):
         self.title = title
         self.data = data
-        self.keys = keys
 
     def render(self) -> None:
         # タイトルの表示
         st.title(self.title)
 
-        # データフレームの表示
-        st.dataframe(df, width=1000, height=500)
+        # テーブルの表示
+        col_size = [1, 2, 2, 2, 2]
+        columns = st.columns(col_size)
+        # JSONから取得したkey名を項目名とする
+        headers = keys
+        for col, field_name in zip(columns, headers):
+            col.write(field_name)
 
         for index, item in enumerate(self.data):
-            cols = st.columns(len(self.keys) + 1)
-            for i, key in enumerate(self.keys):
-                if isinstance(item[key], int):
-                    cols[i].write(f"{item[key]:,}")
-                else:
-                    cols[i].write(item[key])
+            cols = st.columns(col_size)
+            cols[0].write(item[keys[0]]) # ループで取得したい 数字の時にカンマ欲しい
+            cols[1].write(item[keys[1]])
+            cols[2].write(item[keys[2]])
+            if len(keys) > 3:
+                cols[3].write(item[keys[3]])
             if cols[-1].button("編集", key=index):
                 st.session_state[f"edit_{index}"] = not st.session_state.get(f"edit_{index}", False)
 
@@ -147,14 +144,23 @@ class ItemListPage:
 
     def _edit_item(self, index: int) -> None:
         item = self.data[index]
-        st.write(f"編集: {item[self.keys[0]]}")
-        new_values = {}
-        for key in self.keys:
-            new_values[key] = st.text_input(key, value=item[key])
+        st.write(f"編集: {item[keys[0]]}")
+        # ループで生成できないか valueの型考慮が難しい
+        if page_id in ["default", "page_top"]:
+            new_priority_col = int(st.text_input(keys[0], value=item[keys[0]])) 
+        else:
+            new_priority_col = st.text_input(keys[0], value=item[keys[0]])
+        new_col_0 = st.text_input(keys[1], value=item[keys[1]])
+        new_col_1 = st.text_input(keys[2], value=item[keys[2]])
+        if len(keys) > 3:
+            new_col_2 = st.text_input(keys[3], value=item[keys[3]])
 
         if st.button("保存", key=f"save_{index}"):
-            for key in self.keys:
-                self.data[index][key] = new_values[key]
+            self.data[index][keys[0]] = new_priority_col  # ループで取得できないか いける
+            self.data[index][keys[1]] = new_col_0
+            self.data[index][keys[2]] = new_col_1
+            if len(keys) > 3:
+                self.data[index][keys[3]] = new_col_2
             st.success("データが保存されました。")
             
             # JSONファイルに保存する関数
@@ -170,11 +176,21 @@ class ItemListPage:
             st.session_state[f"edit_{index}"] = False
 
             # ページを再レンダリング
-            st.experimental_rerun()
+            # st.experimental_set_query_params()
+
+            # 保存処理時に状態のリセットが行われないのか、描画が元に戻らない
 
 # ページの作成と表示
-page = ItemListPage(switch_title(page_id), sorted(data, key=lambda x: x[keys[0]]), keys)
+page = ItemListPage(switch_title(page_id), sorted(data, key=lambda x: x[keys[0]]))
 page.render()
+
+# if page_id in ["default", "page_top"]:
+#     st.write("智香ちゃん")
+#     df2 = st.empty()
+#     df2.write(df)
+
+# img = Image.open('.jpg')
+# st.image(img, caption='', use_column_sidth=True)
 
 #####
 # 初回画面の表示関連
@@ -183,8 +199,8 @@ page.render()
 # 次へボタンが押されたときの処理
 def next_button_click():
     st.session_state[key] = "checked"
-
+   
 # 内容確認チェック後に次へボタンを表示する
 if page_id == "default":
-    if st.checkbox('内容を確認した'):
+    if st.checkbox('内容を確認した'): 
         st.button('次へ', on_click=next_button_click)
