@@ -1,18 +1,69 @@
 import streamlit as st
 import pandas  as pd
 import json
+import time
 # from st_aggrid import AgGrid, GridUpdateMode
 # from st_aggrid.grid_options_builder import GridOptionsBuilder
 
-key = "default"
-st.title(st.secrets["user"])
+key = "isNotLoggedIn"
+
+#####
+# ログイン関連の定義
+#####
+
+# ユーザー名とパスワードの辞書
+users = {
+    "hay": ""
+}
+
+# セッションステートにログイン状態を保存
+if "logged_in" not in st.session_state:
+    st.session_state.logged_in = False
+
+# ログイン関数
+def login(username, password):
+    if username in users and users[username] == password:
+        st.session_state.logged_in = True
+        st.success("ログイン成功！")
+        # time.sleep(2)
+        # st.experimental_set_query_params()  # 画面を再レンダリング
+        # login(username, password)
+        
+        st.session_state[key] = "unchecked"
+    else:
+        st.error("ユーザー名またはパスワードが間違っています。")
+
+# ログアウト関数
+def logout():
+    st.session_state.logged_in = False
+    st.success("ログアウトしました。")
+
+# ログイン画面の表示
+if not st.session_state.logged_in:
+    st.title("ログイン画面")
+    username = st.text_input("ユーザー名")
+    password = st.text_input("パスワード", type="password")
+    if st.button("ログイン"):
+        login(username, password)
+else:
+    # st.title("ようこそ！")
+    st.write("ログインしています。")
+    if st.button("ログアウト"):
+        logout()
+
+# if st.session_state.logged_in == True:
+#     login(username, password)
+
+
+
 #####
 # 各制御関連の定義
 #####
 
 # 初回画面か否かの判定に使用するkey
 if key not in st.session_state:
-    st.session_state[key] = "unchecked"
+    # st.session_state[key] = "unchecked"
+    st.session_state[key] = "isNotLoggedIn"
 
 # ページ切替に使用するpage_id
 if st.session_state[key] == "unchecked":
@@ -30,7 +81,8 @@ pages = dict(
 )
 
 # st.sidebar.*でサイドバーに表示
-if st.session_state[key] != "unchecked":
+# if st.session_state[key] != "unchecked":
+if st.session_state[key] not in ["isNotLoggedIn", "unchecked"]:
     page_id = st.sidebar.selectbox( 
         "ページ切替",
         ["page_saving", "page_living", "page_top"],
@@ -45,6 +97,7 @@ if st.session_state[key] != "unchecked":
 # titleの切替
 def switch_title(value):
     switcher = {
+        "isNotLoggedIn": "",
         "default": "初回ページ",
         "page_top": "トップページ",
         "page_saving": "貯金",
@@ -80,21 +133,22 @@ def switch_item(value):
     return switcher.get(value, "Invalid value")
 
 # データフレームの取得
-with open(switch_info(page_id), 'r', encoding='utf-8') as file:
-    # ファイルの内容をJSONとして読み込む
-    data_item = json.loads(file.read())
-    def get_keys(data_item):
-        if switch_item(page_id) in data_item and len(data_item[switch_item(page_id)]) > 0:
-            return list(data_item[switch_item(page_id)][0].keys())
-        return []
+if st.session_state[key] != "isNotLoggedIn":
+    with open(switch_info(page_id), 'r', encoding='utf-8') as file:
+        # ファイルの内容をJSONとして読み込む
+        data_item = json.loads(file.read())
+        def get_keys(data_item):
+            if switch_item(page_id) in data_item and len(data_item[switch_item(page_id)]) > 0:
+                return list(data_item[switch_item(page_id)][0].keys())
+            return []
 
-    # 関数を使用してキーのリストを取得
-    keys = get_keys(data_item)
+        # 関数を使用してキーのリストを取得
+        keys = get_keys(data_item)
     
-    # JSONデータを辞書に変換
-    data = data_item.get(switch_item(page_id), [])
-    # データフレームに変換
-    # df = pd.json_normalize(data[switch_item(page_id)])
+        # JSONデータを辞書に変換
+        data = data_item.get(switch_item(page_id), [])
+        # データフレームに変換
+        # df = pd.json_normalize(data[switch_item(page_id)])
 
 # カラム名の切替
 # def switch_columns(value):
@@ -146,7 +200,7 @@ class ItemListPage:
         item = self.data[index]
         st.write(f"編集: {item[keys[0]]}")
         # ループで生成できないか valueの型考慮が難しい
-        if page_id in ["default", "page_top"]:
+        if page_id in ["isNotLoggedIn", "default", "page_top"]:
             new_priority_col = int(st.text_input(keys[0], value=item[keys[0]])) 
         else:
             new_priority_col = st.text_input(keys[0], value=item[keys[0]])
@@ -181,8 +235,9 @@ class ItemListPage:
             # 保存処理時に状態のリセットが行われないのか、描画が元に戻らない
 
 # ページの作成と表示
-page = ItemListPage(switch_title(page_id), sorted(data, key=lambda x: x[keys[0]]))
-page.render()
+if st.session_state[key] != "isNotLoggedIn":
+    page = ItemListPage(switch_title(page_id), sorted(data, key=lambda x: x[keys[0]]))
+    page.render()
 
 # if page_id in ["default", "page_top"]:
 #     st.write("智香ちゃん")
@@ -201,6 +256,7 @@ def next_button_click():
     st.session_state[key] = "checked"
    
 # 内容確認チェック後に次へボタンを表示する
-if page_id == "default":
-    if st.checkbox('内容を確認した'): 
-        st.button('次へ', on_click=next_button_click)
+if st.session_state[key] != "isNotLoggedIn":
+    if page_id == "default":
+        if st.checkbox('内容を確認した'): 
+            st.button('次へ', on_click=next_button_click)
