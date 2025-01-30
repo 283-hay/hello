@@ -35,7 +35,7 @@ def logout():
 # ログイン画面の表示
 if not st.session_state.logged_in:
     st.title("ログイン画面")
-    username = st.text_input("ユーザー名")
+    username = st.text_input("ユーザー名").upper()
     password = st.text_input("パスワード", type="password")
     if st.button("ログイン"):
         login(username, password)
@@ -74,6 +74,12 @@ if st.session_state[key] not in ["isNotLoggedIn", "unchecked"]:
         # 描画する項目を日本語に変換
         format_func=lambda page_id: pages[page_id], 
     )
+    # st.session_state[key] = st.sidebar.selectbox( 
+    #     "ページ切替",
+    #     ["page_saving", "page_living", "page_top"],
+    #     # 描画する項目を日本語に変換
+    #     format_func=lambda page_id: pages[page_id], 
+    # )    
 
 #####
 # title表示関連
@@ -83,15 +89,12 @@ if st.session_state[key] not in ["isNotLoggedIn", "unchecked"]:
 def switch_title(value):
     switcher = {
         "isNotLoggedIn": "",
-        "default": "2025抱負",
+        "default": "翼2025抱負",
         "page_top": "トップページ",
         "page_saving": "貯金",
         "page_living": "光熱費",
     }
     return switcher.get(value, "Invalid value")
-
-# titleを取得し表示
-# st.title(switch_title(page_id))
 
 #####
 # body表示関連
@@ -117,75 +120,40 @@ def switch_item(value):
     }
     return switcher.get(value, "Invalid value")
 
-# データフレームの取得
-if st.session_state[key] != "isNotLoggedIn":
+# JSONデータの取得
+def load_json_data(page_id):
     with open(switch_info(page_id), 'r', encoding='utf-8') as file:
-        # ファイルの内容をJSONとして読み込む
         data_item = json.loads(file.read())
-        def get_keys(data_item):
-            if switch_item(page_id) in data_item and len(data_item[switch_item(page_id)]) > 0:
-                return list(data_item[switch_item(page_id)][0].keys())
-            return []
-
-        # 関数を使用してキーのリストを取得
-        keys = get_keys(data_item)
-    
-        # JSONデータを辞書に変換
+        # キーのリストの取得、ここでやるべきでない
+        keys = list(data_item[switch_item(page_id)][0].keys()) if switch_item(page_id) in data_item and len(data_item[switch_item(page_id)]) > 0 else []
+        # 指定itemの取得、ここでやるべきでない
         data = data_item.get(switch_item(page_id), [])
+    return keys, data
+
+if st.session_state[key] != "isNotLoggedIn":
+    keys, data = load_json_data(page_id)
+    print(st.session_state[key])
+    # print(page_id)
+    if st.session_state[key] in ["unchecked", "page_top"] or page_id == "page_top":
+        #  keys2, data2 = load_json_data(page_id)
+        with open("plan2025_chika.txt", 'r', encoding='utf-8') as file: #冗長的、ベタ書きしただけ
+            data_item = json.loads(file.read())
+            keys2 = list(data_item[switch_item(page_id)][0].keys()) if switch_item(page_id) in data_item and len(data_item[switch_item(page_id)]) > 0 else []
+            data2 = data_item.get(switch_item(page_id), [])
+
         # データフレームに変換
         # df = pd.json_normalize(data[switch_item(page_id)])
-
 # データフレームを表示する場合
 # df = st.empty()
 # df.write(df)
 
 
 
-
-
-# サンプルデータ
-data1 = {
-    "savings": [
-        {"date": "2024年10月", "bank": "2377829", "nisa": "1949990"},
-        {"date": "2024年11月", "bank": "2287829", "nisa": "2249990"},
-        {"date": "2024年12月", "bank": "2607829", "nisa": "2549990"},
-        {"date": "2025年01月", "bank": "2547808", "nisa": "2689990"},
-        {"date": "2025年02月", "bank": "", "nisa": ""},
-        {"date": "2025年03月", "bank": "", "nisa": ""}
-    ]
-}
-
-data2 = {
-    "expenses": [
-        {"date": "2024年10月", "food": "50000", "rent": "100000"},
-        {"date": "2024年11月", "food": "55000", "rent": "100000"},
-        {"date": "2024年12月", "food": "60000", "rent": "100000"},
-        {"date": "2025年01月", "food": "65000", "rent": "100000"},
-        {"date": "2025年02月", "food": "70000", "rent": "100000"},
-        {"date": "2025年03月", "food": "75000", "rent": "100000"}
-    ]
-}
-
-# キーのリストを取得する関数
-def get_keys(data_item):
-    if len(data_item) > 0:
-        return list(data_item[0].keys())
-    return []
-
-
-
 class ItemListPage:
-    # def __init__(self, title, data):
-    #     self.title = title
-    #     self.data = data
-
-
-
     def __init__(self, title, data, keys):
         self.title = title
         self.data = data
         self.keys = keys
-
 
     def render(self) -> None:
         # タイトルの表示
@@ -194,99 +162,62 @@ class ItemListPage:
         # テーブルの表示
         col_size = [1, 2, 2, 2, 2]
         columns = st.columns(col_size)
-        # JSONから取得したkey名を項目名とする
-        headers = keys
 
         def format_number_with_commas(value):
             try:
-                # 文字列を整数に変換
                 number = int(value)
-                # カンマ区切りの形式で表示
-                formatted_number = "{:,}".format(number)
-                return formatted_number
+                return "{:,}".format(number)
             except ValueError:
-                # 変換できない場合は元の文字列を返す
                 return value
 
-        for col, field_name in zip(columns, headers):
+        # ヘッダーの表示
+        for col, field_name in zip(columns, self.keys):
             col.write(field_name)
 
+        # データの表示
         for index, item in enumerate(self.data):
             cols = st.columns(col_size)
-            cols[0].write(item[keys[0]]) # ループで取得したい 数字の時にカンマ欲しい
-            cols[1].write(format_number_with_commas(item[keys[1]])) # 数字の時はカンマにする例
-            cols[2].write(format_number_with_commas(item[keys[2]]))
-            if len(keys) > 3:
-                cols[3].write(format_number_with_commas(item[keys[3]]))
-            if cols[-1].button("編集", key=index):
-                st.session_state[f"edit_{index}"] = not st.session_state.get(f"edit_{index}", False)
-
-            if st.session_state.get(f"edit_{index}", False):
+            for i, key in enumerate(self.keys):
+                cols[i].write(format_number_with_commas(item[key]))
+            if cols[-1].button("編集", key=f"{self.title}_{index}"):
+                st.session_state[f"edit_{self.title}_{index}"] = not st.session_state.get(f"edit_{self.title}_{index}", False)
+            if st.session_state.get(f"edit_{self.title}_{index}", False):
                 self._edit_item(index)
 
     def _edit_item(self, index: int) -> None:
         item = self.data[index]
-        st.write(f"編集: {item[keys[0]]}")
-        # ループで生成できないか valueの型考慮が難しい
-        if page_id in ["isNotLoggedIn", "default", "page_top"]:
-            new_priority_col = int(st.text_input(keys[0], value=item[keys[0]])) 
-        else:
-            new_priority_col = st.text_input(keys[0], value=item[keys[0]])
-        new_col_0 = st.text_input(keys[1], value=item[keys[1]])
-        new_col_1 = st.text_input(keys[2], value=item[keys[2]])
-        if len(keys) > 3:
-            new_col_2 = st.text_input(keys[3], value=item[keys[3]])
+        st.write(f"編集: {item[self.keys[0]]}")
+        new_values = {}
+        for key in self.keys:
+            if isinstance(item[key], int):
+                new_values[key] = int(st.text_input(key, value=item[key], key=f"{self.title}_{key}_{index}"))
+            elif isinstance(item[key], float):
+                new_values[key] = float(st.text_input(key, value=item[key], key=f"{self.title}_{key}_{index}"))
+            else:
+                new_values[key] = st.text_input(key, value=item[key], key=f"{self.title}_{key}_{index}")
 
-        if st.button("保存", key=f"save_{index}"):
-            self.data[index][keys[0]] = new_priority_col  # ループで取得できないか いける
-            self.data[index][keys[1]] = new_col_0
-            self.data[index][keys[2]] = new_col_1
-            if len(keys) > 3:
-                self.data[index][keys[3]] = new_col_2
+        if st.button("保存", key=f"save_{self.title}_{index}"):
+            for key in self.keys:
+                self.data[index][key] = new_values[key]
             st.success("データが保存されました。")
-            
-            # JSONファイルに保存する関数
+
             def save_to_json(data, filename):
                 with open(filename, 'w', encoding='utf-8') as file:
                     json.dump(data, file, ensure_ascii=False, indent=4)
-            # 元のJSONデータを更新
-            updated_data = {switch_item(page_id): self.data}
-            # JSONファイルに保存
+            updated_data = {self.title: self.data}
             save_to_json(updated_data, switch_info(page_id))
 
-            # 編集状態をリセット
             st.session_state[f"edit_{index}"] = False
-
-            # ページを再レンダリング
-            # st.experimental_set_query_params()
-            # 保存処理時に状態のリセットが行われないのか、描画が元に戻らない
 
 # ページの作成と表示
 if st.session_state[key] != "isNotLoggedIn":
-    # page = ItemListPage(switch_title(page_id), sorted(data, key=lambda x: x[keys[0]]))
-    # page.render()
-
-
-
-
-
-    keys1 = get_keys(data)
-    page = ItemListPage(switch_title(page_id), sorted(data, key=lambda x: x[keys[0]]), keys1)
+    page = ItemListPage(switch_title(page_id), sorted(data, key=lambda x: x[keys[0]]), keys)
     page.render()
 
-    # keys2 = get_keys(data)
-    # page2 = ItemListPage(switch_title(page_id), sorted(data, key=lambda x: x[keys[0]]), keys2)
-    # page2.render()
-
-# keys1 = get_keys(data1["savings"])
-# page1 = ItemListPage("貯金", data1["savings"], keys1)
-# page1.render()
-
-# keys2 = get_keys(data2["expenses"])
-# page2 = ItemListPage("生活費", data2["expenses"], keys2)
-
-
-
+    # 抱負画面のみで追加表示
+    if st.session_state[key] in ["unchecked"] or page_id == "page_top": # page_idの制御やめる
+        page2 = ItemListPage("智香", sorted(data2, key=lambda x: x[keys2[0]]), keys2)
+        page2.render()
 
 #####
 # 初回画面の表示関連
