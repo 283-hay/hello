@@ -73,13 +73,7 @@ if st.session_state[key] not in ["isNotLoggedIn", "unchecked"]:
         ["page_saving", "page_living", "page_top"],
         # 描画する項目を日本語に変換
         format_func=lambda page_id: pages[page_id], 
-    )
-    # st.session_state[key] = st.sidebar.selectbox( 
-    #     "ページ切替",
-    #     ["page_saving", "page_living", "page_top"],
-    #     # 描画する項目を日本語に変換
-    #     format_func=lambda page_id: pages[page_id], 
-    # )    
+    )    
 
 #####
 # title表示関連
@@ -88,7 +82,6 @@ if st.session_state[key] not in ["isNotLoggedIn", "unchecked"]:
 # titleの切替
 def switch_title(value):
     switcher = {
-        "isNotLoggedIn": "",
         "default": "翼2025抱負",
         "page_top": "トップページ",
         "page_saving": "貯金",
@@ -133,13 +126,14 @@ def load_json_data(page_id):
 if st.session_state[key] != "isNotLoggedIn":
     keys, data = load_json_data(page_id)
     print(st.session_state[key])
-    # print(page_id)
-    if st.session_state[key] in ["unchecked", "page_top"] or page_id == "page_top":
+    print(page_id)
+    if st.session_state[key] == "unchecked" or page_id == "page_top":
         #  keys2, data2 = load_json_data(page_id)
         with open("plan2025_chika.txt", 'r', encoding='utf-8') as file: #冗長的、ベタ書きしただけ
             data_item = json.loads(file.read())
             keys2 = list(data_item[switch_item(page_id)][0].keys()) if switch_item(page_id) in data_item and len(data_item[switch_item(page_id)]) > 0 else []
             data2 = data_item.get(switch_item(page_id), [])
+            print(data2)
 
         # データフレームに変換
         # df = pd.json_normalize(data[switch_item(page_id)])
@@ -215,7 +209,7 @@ if st.session_state[key] != "isNotLoggedIn":
     page.render()
 
     # 抱負画面のみで追加表示
-    if st.session_state[key] in ["unchecked"] or page_id == "page_top": # page_idの制御やめる
+    if st.session_state[key] == "unchecked" or page_id == "page_top":
         page2 = ItemListPage("智香", sorted(data2, key=lambda x: x[keys2[0]]), keys2)
         page2.render()
 
@@ -228,6 +222,6 @@ def next_button_click():
     st.session_state[key] = "checked"
    
 # 内容確認チェック後に次へボタンを表示する
-if st.session_state[key] != "isNotLoggedIn" and st.session_state[key] == "unchecked":
+if st.session_state[key] == "unchecked":
     if st.checkbox('内容を確認した'): 
         st.button('次へ', on_click=next_button_click)
