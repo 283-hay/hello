@@ -1,8 +1,9 @@
 import streamlit as st
 import pandas  as pd
 import json
-import matplotlib.pyplot as plt
-import matplotlib
+# import matplotlib.pyplot as plt
+# import matplotlib
+import plotly.graph_objects as go
 
 key = "isNotLoggedIn"
 
@@ -214,29 +215,30 @@ if st.session_state[key] != "isNotLoggedIn":
 # print(page_id)
 if st.session_state[key] != "isNotLoggedIn":
     if page_id == "page_saving":
+        pass
 
-        # インタラクティブなバックエンドを設定
-        matplotlib.use('TkAgg')
+        # # インタラクティブなバックエンドを設定
+        # matplotlib.use('TkAgg')
         
-        # データの抽出と整形
-        months = [item['年月'] for item in data]
-        bank_values = [int(item['銀行']) if item['銀行'] else 0 for item in data]
-        nisa_values = [int(item['NISA']) if item['NISA'] else 0 for item in data]
+        # # データの抽出と整形
+        # months = [item['年月'] for item in data]
+        # bank_values = [int(item['銀行']) if item['銀行'] else 0 for item in data]
+        # nisa_values = [int(item['NISA']) if item['NISA'] else 0 for item in data]
 
-        # グラフの作成
-        plt.figure(figsize=(10, 5))
-        plt.plot(months, bank_values, marker='o', linestyle='-', color='b', label='銀行')
-        plt.plot(months, nisa_values, marker='o', linestyle='-', color='r', label='NISA')
+        # # グラフの作成
+        # plt.figure(figsize=(10, 5))
+        # plt.plot(months, bank_values, marker='o', linestyle='-', color='b', label='銀行')
+        # plt.plot(months, nisa_values, marker='o', linestyle='-', color='r', label='NISA')
 
-        # グラフのタイトルとラベル
-        plt.title('Savings Data')
-        plt.xlabel('年月')
-        plt.ylabel('金額')
-        plt.legend()
+        # # グラフのタイトルとラベル
+        # plt.title('Savings Data')
+        # plt.xlabel('年月')
+        # plt.ylabel('金額')
+        # plt.legend()
 
-        # グラフの表示
-        plt.grid(True)
-        plt.show()
+        # # グラフの表示
+        # plt.grid(True)
+        # plt.show()
 
 #####
 # 初回画面の表示関連
