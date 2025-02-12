@@ -1,9 +1,7 @@
 import streamlit as st
-import pandas  as pd
+import pandas as pd
 import json
-# import matplotlib.pyplot as plt
-# import matplotlib
-import plotly.graph_objects as go
+import altair as alt
 
 key = "isNotLoggedIn"
 
@@ -133,14 +131,6 @@ if st.session_state[key] != "isNotLoggedIn":
             keys2 = list(data_item[switch_item(page_id)][0].keys()) if switch_item(page_id) in data_item and len(data_item[switch_item(page_id)]) > 0 else []
             data2 = data_item.get(switch_item(page_id), [])
 
-        # データフレームに変換
-        # df = pd.json_normalize(data[switch_item(page_id)])
-# データフレームを表示する場合
-# df = st.empty()
-# df.write(df)
-
-
-
 class ItemListPage:
     def __init__(self, title, data, keys):
         self.title = title
@@ -212,33 +202,36 @@ if st.session_state[key] != "isNotLoggedIn":
         page2.render()
 
 # グラフの作成と表示
-# print(page_id)
 if st.session_state[key] != "isNotLoggedIn":
-    if page_id == "page_saving":
-        pass
+    if page_id in ["page_saving", "page_living"]:
+        # データフレームに変換
+        df = pd.DataFrame(data)
 
-        # # インタラクティブなバックエンドを設定
-        # matplotlib.use('TkAgg')
-        
-        # # データの抽出と整形
-        # months = [item['年月'] for item in data]
-        # bank_values = [int(item['銀行']) if item['銀行'] else 0 for item in data]
-        # nisa_values = [int(item['NISA']) if item['NISA'] else 0 for item in data]
+        # 各列値を設定、空の場合は0に設定
+        if page_id == "page_saving":
+            df['銀行'] = pd.to_numeric(df['銀行'], errors='coerce').fillna(0)
+            df['NISA'] = pd.to_numeric(df['NISA'], errors='coerce').fillna(0)
+        elif page_id == "page_living":
+            df['電気'] = pd.to_numeric(df['電気'], errors='coerce').fillna(0)
+            df['水道'] = pd.to_numeric(df['水道'], errors='coerce').fillna(0)
+            df['ガス'] = pd.to_numeric(df['ガス'], errors='coerce').fillna(0)
 
-        # # グラフの作成
-        # plt.figure(figsize=(10, 5))
-        # plt.plot(months, bank_values, marker='o', linestyle='-', color='b', label='銀行')
-        # plt.plot(months, nisa_values, marker='o', linestyle='-', color='r', label='NISA')
+        # データを長形式に変換
+        df_long = df.melt(id_vars='年月', var_name='カテゴリ', value_name='金額')
 
-        # # グラフのタイトルとラベル
-        # plt.title('Savings Data')
-        # plt.xlabel('年月')
-        # plt.ylabel('金額')
-        # plt.legend()
+        # グラフの作成
+        chart = alt.Chart(df_long).mark_line(point=True).encode(
+            x='年月',
+            y='金額',
+            color='カテゴリ',
+            tooltip=['年月', 'カテゴリ', '金額']
+        # ).properties(
+        #     title='Savings Data'
+        ).interactive()
 
-        # # グラフの表示
-        # plt.grid(True)
-        # plt.show()
+        # Streamlitでグラフを表示
+        # st.title('Savings Data Visualization')
+        st.altair_chart(chart, use_container_width=True)
 
 #####
 # 初回画面の表示関連
