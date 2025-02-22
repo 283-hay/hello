@@ -73,12 +73,14 @@ pages = dict(
 )
 
 if st.session_state[key] not in ["isNotLoggedIn", "unchecked"]:
+    #####
     # ログアウトボタンを表示
+    #####
     if st.sidebar.button("ログアウト"):
         logout()
 
     #####
-    # ページ一切替情報欄
+    # ページ切替情報欄
     #####
 
     # 区切り線とサブヘッダーを表示
@@ -125,6 +127,52 @@ if st.session_state[key] not in ["isNotLoggedIn", "unchecked"]:
 
         # 選択された年月を表示
         # st.sidebar.write(f"選択された年月: {selected_year}-{selected_month}")
+
+        #####
+        # 新規登録関連
+        #####
+        # 区切り線とサブヘッダーを表示
+        st.sidebar.markdown("---")
+        st.sidebar.subheader("新規登録")
+
+        # 登録項目を表示
+        match page_id:
+            case "page_saving":
+                date = st.sidebar.date_input('日付', value=default_date)
+                items = ["銀行", "NISA"]
+                item = st.sidebar.selectbox('項目', items)
+                bill = st.sidebar.number_input('金額', step=1)
+                memo = st.sidebar.text_input('備考')
+            case "page_utility":
+                date = st.sidebar.date_input('日付', value=default_date)
+                items = ["電気", "ガス", "水道"]
+                item = st.sidebar.selectbox('項目', items)
+                bill = st.sidebar.number_input('金額', step=1)
+                memo = st.sidebar.text_input('備考')
+            case "page_living":
+                date = st.sidebar.date_input('日付', value=default_date)
+                items = ["固定費", "食費", "その他生活費", "特別費", "雑費", "分類不能", "未登録"]
+                item = st.sidebar.selectbox('項目', items)
+                bill = st.sidebar.number_input('金額', step=1)
+                memo = st.sidebar.text_input('備考')
+            case _:
+                name = st.sidebar.text_input('名前')
+                age = st.sidebar.number_input('年齢', min_value=0)
+
+        # 登録ボタン
+        if st.sidebar.button('登録'):
+            # 登録処理
+            if page_id in ["page_saving", "page_utility"] and bill == 0:
+                st.sidebar.error('金額には0以外を入力してね。')
+            else:
+                match page_id:
+                    case "page_saving":
+                        db.save_saving(date, item, bill, memo)
+                    case "page_utility":
+                        db.save_utility(date, item, bill, memo)
+                    case _:
+                        db.save_user(name, age)
+                st.sidebar.success('登録完了!')
 
 #####
 # title表示関連
@@ -262,98 +310,43 @@ if st.session_state[key] != "isNotLoggedIn":
         page2.render()
 
     else:
-        # セッションステートの初期化
-        if 'button_clicked' not in st.session_state:
-            st.session_state.button_clicked = False
+        # タイトルを表示
+        st.title(switch_title(page_id))
 
-        if st.button('新規登録'):
-            st.session_state.button_clicked = True
-
-        # ユーザー情報の登録
-        if st.session_state.button_clicked:
-            # 登録項目を表示
-            match page_id:
-                case "page_saving":
-                    date = st.date_input('日付', value=default_date)
-                    items = ["銀行", "NISA"]
-                    item = st.selectbox('項目', items)
-                    bill = st.number_input('金額', step=1)
-                    memo = st.text_input('備考')
-                case "page_utility":
-                    date = st.date_input('日付', value=default_date)
-                    items = ["電気", "ガス", "水道"]
-                    item = st.selectbox('項目', items)
-                    bill = st.number_input('金額', step=1)
-                    memo = st.text_input('備考')
-                case "page_living":
-                    date = st.date_input('日付', value=default_date)
-                    items = ["固定費", "食費", "その他生活費", "特別費", "雑費", "分類不能", "未登録"]
-                    item = st.selectbox('項目', items)
-                    bill = st.number_input('金額', step=1)
-                    memo = st.text_input('備考')
-                case _:
-                    name = st.text_input('名前')
-                    age = st.number_input('年齢', min_value=0)
-
-            # 登録ボタン
-            if st.button('登録'):
-                # 登録処理
-                if page_id in ["page_saving", "page_utility"] and bill == 0:
-                    st.error('金額には0以外を入力してね。')
-                else:
-                    match page_id:
-                        case "page_saving":
-                            db.save_saving(date, item, bill, memo)
-                        case "page_utility":
-                            db.save_utility(date, item, bill, memo)
-                        case _:
-                            db.save_user(name, age)
-                    st.success('登録完了!')
-                    st.session_state.button_clicked = False
-
-        # 区切り線とヘッダーを表示
-        st.markdown("---")
-        st.header('一覧')
+        # データを取得(グラフと一覧/詳細)
         try:
-            # データ取得
-            if page_id == "page_saving":
-                df = db.get_all_savings()
+            # データ取得 #Todo Filter
+            # if page_id == "page_saving":
+            if page_id in ["page_saving", "page_utility", "page_living"]: # 一時的に
+                df_all = db.get_all_savings()
+                df_detail = db.get_detail_savings()
             elif page_id == "page_utility":
-                df = db.get_all_utilities()
+                df_all = db.get_all_utilities()
+                df_detail = db.get_detail_utilities()
             else:
-                df = db.get_all_users()
-            st.dataframe(df)
+                df_all = db.get_all_users()
+                df_detail = db.get_detail_users()
         # except pd.io.sql.DatabaseError:
         #     st.error('Failed to access the database.')
         except pd.io.sql.DatabaseError as e:
             st.error(f'Failed to access the database. Error details: {e}')
 
-# グラフの作成と表示 #Todo 一覧の上に表示したい
-if st.session_state[key] != "isNotLoggedIn":
-    # 区切り線の表示
-    st.markdown("---")
-    # if page_id in ["page_saving", "page_utility", "page_living"]:
-    if page_id in ["page_saving"]:
-        # データフレームに変換
-        df = db.get_all_savings()
-
         # 各列値を設定、空の場合は0に設定
-        # フィルターで表現したい、予定と実績表現も
-        if page_id == "page_saving":
-            df['bank'] = pd.to_numeric(df['bank'], errors='coerce').fillna(0)
-            df['nisa'] = pd.to_numeric(df['nisa'], errors='coerce').fillna(0)
+        # if page_id == "page_saving":
+        if page_id in ["page_saving", "page_utility", "page_living"]: # 一時的に
+            df_all['bank'] = pd.to_numeric(df_all['bank'], errors='coerce').fillna(0)
+            df_all['nisa'] = pd.to_numeric(df_all['nisa'], errors='coerce').fillna(0)
         elif page_id == "page_utility":
-            df['電気'] = pd.to_numeric(df['電気'], errors='coerce').fillna(0)
-            df['水道'] = pd.to_numeric(df['水道'], errors='coerce').fillna(0)
-            df['ガス'] = pd.to_numeric(df['ガス'], errors='coerce').fillna(0)
+            df_all['電気'] = pd.to_numeric(df_all['電気'], errors='coerce').fillna(0)
+            df_all['水道'] = pd.to_numeric(df_all['水道'], errors='coerce').fillna(0)
+            df_all['ガス'] = pd.to_numeric(df_all['ガス'], errors='coerce').fillna(0)
         elif page_id == "page_living":
-            df['電気'] = pd.to_numeric(df['電気'], errors='coerce').fillna(0)
-            df['水道'] = pd.to_numeric(df['水道'], errors='coerce').fillna(0)
-            df['ガス'] = pd.to_numeric(df['ガス'], errors='coerce').fillna(0)
+            df_all['電気'] = pd.to_numeric(df_all['電気'], errors='coerce').fillna(0)
+            df_all['水道'] = pd.to_numeric(df_all['水道'], errors='coerce').fillna(0)
+            df_all['ガス'] = pd.to_numeric(df_all['ガス'], errors='coerce').fillna(0)
 
-        # データを長形式に変換
-        df_long = df.melt(id_vars='year_month', var_name='category', value_name='amount')
-        # グラフの作成
+        # データを長形式に変換し、グラフを作成
+        df_long = df_all.melt(id_vars='year_month', var_name='category', value_name='amount')
         chart = alt.Chart(df_long).mark_line(point=True).encode(
             x='year_month',
             y='amount',
@@ -364,8 +357,17 @@ if st.session_state[key] != "isNotLoggedIn":
         ).interactive()
 
         # Streamlitでグラフを表示
-        # st.title('Savings Data Visualization')
         st.altair_chart(chart, use_container_width=True)
+
+        # 区切り線とヘッダーと一覧を表示
+        st.markdown("---")
+        st.header('一覧')
+        st.dataframe(df_all)
+
+        # 区切り線とヘッダーと詳細を表示
+        st.markdown("---")
+        st.header('詳細')
+        st.dataframe(df_detail)
 
 #####
 # 初回画面の表示関連

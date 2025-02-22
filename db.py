@@ -87,7 +87,7 @@ def save_utility(date, item, bill, memo):
 #     conn.close()
 
 #####
-# データを取得する関数
+# 一覧データを取得する関数
 #####
 
 # ユーザーデータ取得
@@ -97,7 +97,7 @@ def get_all_users():
     conn.close()
     return df
 
-# 貯金データ取得
+# 貯金データ取得(一覧)
 def get_all_savings():
     conn = get_connection()
 
@@ -146,6 +146,23 @@ def get_all_savings():
 def get_all_utilities():
     conn = get_connection()
     df = pd.read_sql_query('SELECT * FROM utilities', conn)
+    conn.close()
+    return df
+
+#####
+# 一覧データを取得する関数
+#####
+
+# 貯金データ取得(詳細)
+def get_detail_savings():
+    conn = get_connection()
+
+    query = '''
+    SELECT *
+    FROM saving;
+    '''
+
+    df = pd.read_sql_query(query, conn)
     conn.close()
     return df
 
