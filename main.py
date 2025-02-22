@@ -125,8 +125,11 @@ if st.session_state[key] not in ["isNotLoggedIn", "unchecked"]:
         selected_year = st.sidebar.selectbox("年", detail_years, index=detail_years.index(str(default_date)[:4]))
         selected_month = st.sidebar.selectbox("月", detail_months, index=detail_months.index(str(default_date)[5:7]))
 
-        # 選択された年月を表示
-        # st.sidebar.write(f"選択された年月: {selected_year}-{selected_month}")
+        # 注意文言を表示
+        st.sidebar.markdown("※ 前月から表示されます。")
+
+        # 選択された年月を結合
+        selected_year_month = selected_year + "-" + selected_month
 
         #####
         # 新規登録関連
@@ -173,6 +176,10 @@ if st.session_state[key] not in ["isNotLoggedIn", "unchecked"]:
                     case _:
                         db.save_user(name, age)
                 st.sidebar.success('登録完了!')
+
+        # 注意文言を表示
+        st.sidebar.markdown("※ 入力誤り時の相殺処理にも利用。")
+
 
 #####
 # title表示関連
@@ -312,14 +319,14 @@ if st.session_state[key] != "isNotLoggedIn":
     else:
         # タイトルを表示
         st.title(switch_title(page_id))
-
         # データを取得(グラフと一覧/詳細)
         try:
             # データ取得 #Todo Filter
             # if page_id == "page_saving":
             if page_id in ["page_saving", "page_utility", "page_living"]: # 一時的に
-                df_all = db.get_all_savings()
-                df_detail = db.get_detail_savings()
+                df_all = db.get_all_savings(start_year, end_year)
+                # df_all = db.get_all_savings()
+                df_detail = db.get_detail_savings(selected_year_month)
             elif page_id == "page_utility":
                 df_all = db.get_all_utilities()
                 df_detail = db.get_detail_utilities()
@@ -328,7 +335,7 @@ if st.session_state[key] != "isNotLoggedIn":
                 df_detail = db.get_detail_users()
         # except pd.io.sql.DatabaseError:
         #     st.error('Failed to access the database.')
-        except pd.io.sql.DatabaseError as e:
+        except pd.io.sql.DatabaseError as e: # デバッグ用
             st.error(f'Failed to access the database. Error details: {e}')
 
         # 各列値を設定、空の場合は0に設定

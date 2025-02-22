@@ -1,5 +1,12 @@
+import streamlit as st
 import sqlite3
 import pandas as pd
+from datetime import datetime
+from dateutil.relativedelta import relativedelta
+
+# secrets.tomlからkeyを取得
+# keys = st.secrets["sqlite"]
+# sqlite_key = keys.get('key')
 
 #####
 # データベース連の定義
@@ -98,10 +105,10 @@ def get_all_users():
     return df
 
 # 貯金データ取得(一覧)
-def get_all_savings():
+def get_all_savings(start_year=None, end_year=None):
     conn = get_connection()
 
-    query = '''
+    base_query_first = '''
     WITH bank_summary AS (
         SELECT strftime('%Y-%m', date) AS year_month,
             SUM(bill) OVER (ORDER BY date ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS bank,
@@ -131,13 +138,21 @@ def get_all_savings():
         COALESCE(n.nisa, 0) AS nisa
     FROM bank_latest b
     LEFT JOIN nisa_latest n ON b.year_month = n.year_month
+    '''
+
+    base_query_middle = '''
     UNION
     SELECT n.year_month, COALESCE(b.bank, 0) AS bank, n.nisa
     FROM nisa_latest n
     LEFT JOIN bank_latest b ON n.year_month = b.year_month
-    ORDER BY year_month;
     '''
+    base_query_last = ' ORDER BY year_month'
 
+    add_where = ' WHERE  SUBSTR(COALESCE(b.year_month, n.year_month), 1, 4) BETWEEN "' + start_year + '" AND "' + end_year +'" '
+    if start_year is not None and end_year is not None:
+        query = base_query_first + add_where + base_query_middle + add_where + base_query_last
+    else:
+        query = base_query_first + base_query_middle + base_query_last
     df = pd.read_sql_query(query, conn)
     conn.close()
     return df
@@ -154,14 +169,23 @@ def get_all_utilities():
 #####
 
 # 貯金データ取得(詳細)
-def get_detail_savings():
+def get_detail_savings(year_month=None):
     conn = get_connection()
-
-    query = '''
+    base_query_first = '''
     SELECT *
-    FROM saving;
+    FROM saving
     '''
 
+    base_query_last = ' ORDER BY date'
+
+    # 入力値の1か月前を計算し、整形
+    last_month_pre = datetime.strptime(year_month, "%Y-%m") - relativedelta(months=1)
+    lastmonth = last_month_pre.strftime('%Y-%m')
+
+    if year_month:
+        query = base_query_first + ' WHERE SUBSTR(date, 1, 7) BETWEEN "' + lastmonth + '" AND "' + year_month +'" ' + base_query_last
+    else:
+        query = base_query_first + base_query_last
     df = pd.read_sql_query(query, conn)
     conn.close()
     return df
