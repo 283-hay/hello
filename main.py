@@ -165,12 +165,14 @@ if st.session_state[key] not in ["isNotLoggedIn", "unchecked"]:
         # 登録ボタン
         if st.sidebar.button('登録'):
             # 登録処理
-            if page_id in ["page_saving", "page_utility"] and bill == 0:
+            if page_id in ["page_saving", "page_saving", "page_utility"] and bill == 0:
                 st.sidebar.error('金額には0以外を入力してね。')
             else:
                 match page_id:
                     case "page_saving":
                         db.save_saving(date, item, bill, memo)
+                    case "page_living":
+                        db.save_living(date, bill, memo)
                     case "page_utility":
                         db.save_utility(date, item, bill, memo)
                     case _:
@@ -323,13 +325,12 @@ if st.session_state[key] != "isNotLoggedIn":
         try:
             # データ取得 #Todo Filter
             # if page_id == "page_saving":
-            if page_id in ["page_saving", "page_utility", "page_living"]: # 一時的に
+            if page_id in ["page_saving", "page_living"]: # 一時的に
                 df_all = db.get_all_savings(start_year, end_year)
-                # df_all = db.get_all_savings()
                 df_detail = db.get_detail_savings(selected_year_month)
             elif page_id == "page_utility":
-                df_all = db.get_all_utilities()
-                df_detail = db.get_detail_utilities()
+                df_all = db.get_all_utilities(start_year, end_year)
+                df_detail = db.get_detail_utilities(selected_year_month)
             else:
                 df_all = db.get_all_users()
                 df_detail = db.get_detail_users()
@@ -340,13 +341,13 @@ if st.session_state[key] != "isNotLoggedIn":
 
         # 各列値を設定、空の場合は0に設定
         # if page_id == "page_saving":
-        if page_id in ["page_saving", "page_utility", "page_living"]: # 一時的に
+        if page_id in ["page_saving", "page_living"]: # 一時的に
             df_all['bank'] = pd.to_numeric(df_all['bank'], errors='coerce').fillna(0)
             df_all['nisa'] = pd.to_numeric(df_all['nisa'], errors='coerce').fillna(0)
         elif page_id == "page_utility":
-            df_all['電気'] = pd.to_numeric(df_all['電気'], errors='coerce').fillna(0)
-            df_all['水道'] = pd.to_numeric(df_all['水道'], errors='coerce').fillna(0)
-            df_all['ガス'] = pd.to_numeric(df_all['ガス'], errors='coerce').fillna(0)
+            df_all['elec'] = pd.to_numeric(df_all['elec'], errors='coerce').fillna(0)
+            df_all['water'] = pd.to_numeric(df_all['water'], errors='coerce').fillna(0)
+            df_all['gas'] = pd.to_numeric(df_all['gas'], errors='coerce').fillna(0)
         elif page_id == "page_living":
             df_all['電気'] = pd.to_numeric(df_all['電気'], errors='coerce').fillna(0)
             df_all['水道'] = pd.to_numeric(df_all['水道'], errors='coerce').fillna(0)

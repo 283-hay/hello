@@ -22,18 +22,26 @@ def initialize_database():
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute('''
-        CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
-            age INTEGER NOT NULL
+        CREATE TABLE IF NOT EXISTS savings (
+            date DATE NOT NULL,
+            item TEXT NOT NULL,
+            bill INTEGER NOT NULL,
+            memo TEXT
+        )
+    ''')
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS livings (
+            date DATE NOT NULL,
+            bill INTEGER NOT NULL,
+            memo TEXT
         )
     ''')
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS utilities (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            date TEXT NOT NULL,
+            date DATE NOT NULL,
             item TEXT NOT NULL,
-            bill INTEGER
+            bill INTEGER NOT NULL,
+            memo TEXT
         )
     ''')
     conn.commit()
@@ -58,8 +66,18 @@ def save_saving(date, item, bill, memo):
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute('''
-        INSERT INTO saving (date, item, bill, memo) VALUES (?, ?, ?, ?)
+        INSERT INTO savings (date, item, bill, memo) VALUES (?, ?, ?, ?)
     ''', (date, item, bill, memo))
+    conn.commit()
+    conn.close()
+
+# 生活費データ保存
+def save_living(date, item, bill, memo):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute('''
+        INSERT INTO livings (date, bill, memo) VALUES (?, ?, ?)
+    ''', (date, bill, memo))
     conn.commit()
     conn.close()
 
@@ -73,7 +91,9 @@ def save_utility(date, item, bill, memo):
     conn.commit()
     conn.close()
 
-# データを更新する関数
+#####
+# データベースのデータを更新する関数
+#####
 # def update_user(user_id, name, age):
 #     conn = get_connection()
 #     cursor = conn.cursor()
@@ -83,7 +103,9 @@ def save_utility(date, item, bill, memo):
 #     conn.commit()
 #     conn.close()
 
-# データを削除する関数
+#####
+# データベースのデータを削除する関数
+#####
 # def delete_user(user_id):
 #     conn = get_connection()
 #     cursor = conn.cursor()
@@ -113,14 +135,14 @@ def get_all_savings(start_year=None, end_year=None):
         SELECT strftime('%Y-%m', date) AS year_month,
             SUM(bill) OVER (ORDER BY date ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS bank,
             ROW_NUMBER() OVER (PARTITION BY strftime('%Y-%m', date) ORDER BY date DESC) AS rn
-        FROM saving
+        FROM savings
         WHERE item = "銀行"
     ),
     nisa_summary AS (
         SELECT strftime('%Y-%m', date) AS year_month,
             SUM(bill) OVER (ORDER BY date ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS nisa,
             ROW_NUMBER() OVER (PARTITION BY strftime('%Y-%m', date) ORDER BY date DESC) AS rn
-        FROM saving
+        FROM savings
         WHERE item <> "銀行"
     ),
     bank_latest AS (
@@ -146,7 +168,7 @@ def get_all_savings(start_year=None, end_year=None):
     FROM nisa_latest n
     LEFT JOIN bank_latest b ON n.year_month = b.year_month
     '''
-    base_query_last = ' ORDER BY year_month'
+    base_query_last = ' ORDER BY year_month DESC'
 
     add_where = ' WHERE  SUBSTR(COALESCE(b.year_month, n.year_month), 1, 4) BETWEEN "' + start_year + '" AND "' + end_year +'" '
     if start_year is not None and end_year is not None:
@@ -157,10 +179,31 @@ def get_all_savings(start_year=None, end_year=None):
     conn.close()
     return df
 
-# 光熱費データ取得
-def get_all_utilities():
+# 光熱費データ取得(一覧)
+def get_all_utilities(start_year=None, end_year=None):
     conn = get_connection()
-    df = pd.read_sql_query('SELECT * FROM utilities', conn)
+
+    base_query_first = '''
+    SELECT
+        strftime('%Y-%m', date) AS year_month,
+        SUM(CASE WHEN item = '電気' THEN bill ELSE 0 END) AS elec,
+        SUM(CASE WHEN item = '水道' THEN bill ELSE 0 END) AS water,
+        SUM(CASE WHEN item = 'ガス' THEN bill ELSE 0 END) AS gas
+    FROM utilities
+    GROUP BY year_month
+    '''
+
+    base_query_last = ' ORDER BY year_month DESC'
+
+    # add_where = ' WHERE strftime('%Y-%m', date) BETWEEN "' + start_year + '" AND "' + end_year +'" '
+    # add_where = ' WHERE year_month BETWEEN "' + start_year + '" AND "' + end_year +'" '
+
+    if start_year is not None and end_year is not None:
+        # query = base_query_first + add_where + base_query_last
+        query = base_query_first + base_query_last
+    else:
+        query = base_query_first + base_query_last
+    df = pd.read_sql_query(query, conn)
     conn.close()
     return df
 
@@ -173,10 +216,32 @@ def get_detail_savings(year_month=None):
     conn = get_connection()
     base_query_first = '''
     SELECT *
-    FROM saving
+    FROM savings
     '''
 
-    base_query_last = ' ORDER BY date'
+    base_query_last = ' ORDER BY date DESC'
+
+    # 入力値の1か月前を計算し、整形
+    last_month_pre = datetime.strptime(year_month, "%Y-%m") - relativedelta(months=1)
+    lastmonth = last_month_pre.strftime('%Y-%m')
+
+    if year_month:
+        query = base_query_first + ' WHERE SUBSTR(date, 1, 7) BETWEEN "' + lastmonth + '" AND "' + year_month +'" ' + base_query_last
+    else:
+        query = base_query_first + base_query_last
+    df = pd.read_sql_query(query, conn)
+    conn.close()
+    return df
+
+# 光熱費データ取得(詳細)
+def get_detail_utilities(year_month=None):
+    conn = get_connection()
+    base_query_first = '''
+    SELECT *
+    FROM utilities
+    '''
+
+    base_query_last = ' ORDER BY date DESC'
 
     # 入力値の1か月前を計算し、整形
     last_month_pre = datetime.strptime(year_month, "%Y-%m") - relativedelta(months=1)
