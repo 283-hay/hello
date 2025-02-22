@@ -2,17 +2,112 @@ import streamlit as st
 import pandas as pd
 import json
 import altair as alt
-import db
-import datetime
+import sqlite3
 
-# キーの初期値を設定
 key = "isNotLoggedIn"
 
-# 今日の日付を初期値として設定
-default_date = datetime.date.today()
+#####
+# データベース連の定義
+#####
+
+# データベース接続関数
+def get_connection():
+    conn = sqlite3.connect('example.db')
+    return conn
+
+# データベースとテーブルを初期化する関数
+def initialize_database():
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            age INTEGER NOT NULL
+        )
+    ''')
+    conn.commit()
+    conn.close()
+
+# データをデータベースに保存する関数
+def save_user(name, age):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute('''
+        INSERT INTO users (name, age) VALUES (?, ?)
+    ''', (name, age))
+    conn.commit()
+    conn.close()
+
+# データを更新する関数
+def update_user(user_id, name, age):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute('''
+        UPDATE users SET name = ?, age = ? WHERE id = ?
+    ''', (name, age, user_id))
+    conn.commit()
+    conn.close()
+
+# データを削除する関数
+def delete_user(user_id):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute('''
+        DELETE FROM users WHERE id = ?
+    ''', (user_id,))
+    conn.commit()
+    conn.close()
+
+# データを取得する関数
+def get_all_users():
+    conn = get_connection()
+    df = pd.read_sql_query('SELECT * FROM users', conn)
+    conn.close()
+    return df
 
 # アプリの起動時にデータベースを初期化
-db.initialize_database()
+initialize_database()
+
+# StreamlitアプリのUI
+st.title('User Management App')
+
+# ユーザー情報の登録
+st.header('Register New User')
+name = st.text_input('Name')
+age = st.number_input('Age', min_value=0)
+
+if st.button('Register'):
+    save_user(name, age)
+    st.success('User registered successfully!')
+
+# 登録されたユーザーを表示
+st.header('Registered Users')
+try:
+    users_df = get_all_users()
+    print(users_df)
+
+    for index, row in users_df.iterrows():
+        cols = st.columns([1, 2, 1, 2, 1, 1])  # カラムサイズを指定
+        cols[0].write(row['id'])
+        cols[1].write(row['name'])
+        cols[2].write(row['age'])
+
+        if cols[3].button(f"Edit {row['id']}"):
+            new_name = st.text_input(f"New Name for ID {row['id']}", value=row['name'])
+            new_age = st.number_input(f"New Age for ID {row['id']}", min_value=0, value=row['age'])
+            if st.button(f"Save {row['id']}"):
+                update_user(row['id'], new_name, new_age)
+                st.success(f"User {row['id']} updated successfully!")
+
+        if cols[4].button(f"Delete {row['id']}"):
+            delete_user(row['id'])
+            st.success(f"User {row['id']} deleted successfully!")
+
+    st.dataframe(users_df)
+except pd.io.sql.DatabaseError:
+    st.error('Failed to access the database.')
+
 
 #####
 # ログイン関連の定義
@@ -47,6 +142,9 @@ if not st.session_state.logged_in:
     password = st.text_input("パスワード", type="password")
     if st.button("ログイン"):
         login(username, password)
+else:
+    if st.button("ログアウト"):
+        logout()
 
 #####
 # 各制御関連の定義
@@ -61,7 +159,7 @@ if st.session_state[key] == "unchecked":
     page_id = "default"
 
 #####
-# サイドバー関連
+# page一覧関連
 #####
 
 # ページ一覧を定義
@@ -72,59 +170,14 @@ pages = dict(
     page_living="生活費",
 )
 
+# st.sidebar.*でサイドバーに表示
 if st.session_state[key] not in ["isNotLoggedIn", "unchecked"]:
-    # ログアウトボタンを表示
-    if st.sidebar.button("ログアウト"):
-        logout()
-
-    #####
-    # ページ一切替情報欄
-    #####
-
-    # 区切り線とサブヘッダーを表示
-    st.sidebar.markdown("---")
-    st.sidebar.subheader("ページ切替")
-
     page_id = st.sidebar.selectbox( 
-        "ページ",
+        "ページ切替",
         ["page_saving", "page_utility", "page_living", "page_top"],
         # 描画する項目を日本語に変換
         format_func=lambda page_id: pages[page_id], 
-    )
-
-    if page_id != "page_top":
-        #####
-        # 一覧表示範囲指定
-        #####
-
-        # 区切り線とサブヘッダーを表示
-        st.sidebar.markdown("---")
-        st.sidebar.subheader("一覧表示範囲指定")
-
-        # 年のリストを作成
-        detail_years = [str(year) for year in range(2023, 2030)]
-
-        # 開始年と終了年のプルダウンリストを表示
-        start_year = st.sidebar.selectbox("開始年", detail_years, index=detail_years.index(str(default_date - datetime.timedelta(days=365))[:4]))
-        end_year = st.sidebar.selectbox("終了年", detail_years, index=detail_years.index(str(default_date)[:4]))
-
-        #####
-        # 一覧表示範囲指定
-        #####
-
-        # 区切り線とサブヘッダーを表示
-        st.sidebar.markdown("---")
-        st.sidebar.subheader("詳細表示指定")
-
-        # 月のリストを作成
-        detail_months = [f'{month:02}' for month in range(1, 13)]
-
-        # 年と月のプルダウンリストを表示
-        selected_year = st.sidebar.selectbox("年", detail_years, index=detail_years.index(str(default_date)[:4]))
-        selected_month = st.sidebar.selectbox("月", detail_months, index=detail_months.index(str(default_date)[5:7]))
-
-        # 選択された年月を表示
-        # st.sidebar.write(f"選択された年月: {selected_year}-{selected_month}")
+    )    
 
 #####
 # title表示関連
@@ -142,7 +195,7 @@ def switch_title(value):
     return switcher.get(value, "Invalid value")
 
 #####
-# Json関連
+# body表示関連
 #####
 
 # 取得ファイルの切替
@@ -175,12 +228,14 @@ def load_json_data(page_id):
         keys = list(data_item[switch_item(page_id)][0].keys()) if switch_item(page_id) in data_item and len(data_item[switch_item(page_id)]) > 0 else []
         # 指定itemの取得、ここでやるべきでない
         data = data_item.get(switch_item(page_id), [])
+        print(data)
     return keys, data
 
 if st.session_state[key] != "isNotLoggedIn":
+    keys, data = load_json_data(page_id)
+    print(data)
     if st.session_state[key] == "unchecked" or page_id == "page_top":
-        keys, data = load_json_data(page_id)
-        keys2, data2 = load_json_data(page_id)
+        #  keys2, data2 = load_json_data(page_id)
         with open("plan2025_chika.txt", 'r', encoding='utf-8') as file: #冗長的、ベタ書きしただけ
             data_item = json.loads(file.read())
             keys2 = list(data_item[switch_item(page_id)][0].keys()) if switch_item(page_id) in data_item and len(data_item[switch_item(page_id)]) > 0 else []
@@ -249,99 +304,27 @@ def save_to_json(data, filename):
     with open(filename, 'w', encoding='utf-8') as file:
         json.dump(data, file, ensure_ascii=False, indent=4)
 
-#####
 # ページの作成と表示
-#####
 if st.session_state[key] != "isNotLoggedIn":
+    page = ItemListPage(switch_title(page_id), sorted(data, key=lambda x: x[keys[0]]), keys)
+    page.render()
+
+    # 抱負画面のみで追加表示
     if st.session_state[key] == "unchecked" or page_id == "page_top":
-        # 翼
-        page = ItemListPage(switch_title(page_id), sorted(data, key=lambda x: x[keys[0]]), keys)
-        page.render()
-        # 智香
         page2 = ItemListPage("智香", sorted(data2, key=lambda x: x[keys2[0]]), keys2)
         page2.render()
 
-    else:
-        # セッションステートの初期化
-        if 'button_clicked' not in st.session_state:
-            st.session_state.button_clicked = False
-
-        if st.button('新規登録'):
-            st.session_state.button_clicked = True
-
-        # ユーザー情報の登録
-        if st.session_state.button_clicked:
-            # 登録項目を表示
-            match page_id:
-                case "page_saving":
-                    date = st.date_input('日付', value=default_date)
-                    items = ["銀行", "NISA"]
-                    item = st.selectbox('項目', items)
-                    bill = st.number_input('金額', step=1)
-                    memo = st.text_input('備考')
-                case "page_utility":
-                    date = st.date_input('日付', value=default_date)
-                    items = ["電気", "ガス", "水道"]
-                    item = st.selectbox('項目', items)
-                    bill = st.number_input('金額', step=1)
-                    memo = st.text_input('備考')
-                case "page_living":
-                    date = st.date_input('日付', value=default_date)
-                    items = ["固定費", "食費", "その他生活費", "特別費", "雑費", "分類不能", "未登録"]
-                    item = st.selectbox('項目', items)
-                    bill = st.number_input('金額', step=1)
-                    memo = st.text_input('備考')
-                case _:
-                    name = st.text_input('名前')
-                    age = st.number_input('年齢', min_value=0)
-
-            # 登録ボタン
-            if st.button('登録'):
-                # 登録処理
-                if page_id in ["page_saving", "page_utility"] and bill == 0:
-                    st.error('金額には0以外を入力してね。')
-                else:
-                    match page_id:
-                        case "page_saving":
-                            db.save_saving(date, item, bill, memo)
-                        case "page_utility":
-                            db.save_utility(date, item, bill, memo)
-                        case _:
-                            db.save_user(name, age)
-                    st.success('登録完了!')
-                    st.session_state.button_clicked = False
-
-        # 区切り線とヘッダーを表示
-        st.markdown("---")
-        st.header('一覧')
-        try:
-            # データ取得
-            if page_id == "page_saving":
-                df = db.get_all_savings()
-            elif page_id == "page_utility":
-                df = db.get_all_utilities()
-            else:
-                df = db.get_all_users()
-            st.dataframe(df)
-        # except pd.io.sql.DatabaseError:
-        #     st.error('Failed to access the database.')
-        except pd.io.sql.DatabaseError as e:
-            st.error(f'Failed to access the database. Error details: {e}')
-
-# グラフの作成と表示 #Todo 一覧の上に表示したい
+# グラフの作成と表示
 if st.session_state[key] != "isNotLoggedIn":
-    # 区切り線の表示
-    st.markdown("---")
-    # if page_id in ["page_saving", "page_utility", "page_living"]:
-    if page_id in ["page_saving"]:
+    if page_id in ["page_saving", "page_utility", "page_living"]:
         # データフレームに変換
-        df = db.get_all_savings()
+        df = pd.DataFrame(data)
 
         # 各列値を設定、空の場合は0に設定
         # フィルターで表現したい、予定と実績表現も
         if page_id == "page_saving":
-            df['bank'] = pd.to_numeric(df['bank'], errors='coerce').fillna(0)
-            df['nisa'] = pd.to_numeric(df['nisa'], errors='coerce').fillna(0)
+            df['銀行'] = pd.to_numeric(df['銀行'], errors='coerce').fillna(0)
+            df['NISA'] = pd.to_numeric(df['NISA'], errors='coerce').fillna(0)
         elif page_id == "page_utility":
             df['電気'] = pd.to_numeric(df['電気'], errors='coerce').fillna(0)
             df['水道'] = pd.to_numeric(df['水道'], errors='coerce').fillna(0)
@@ -352,13 +335,14 @@ if st.session_state[key] != "isNotLoggedIn":
             df['ガス'] = pd.to_numeric(df['ガス'], errors='coerce').fillna(0)
 
         # データを長形式に変換
-        df_long = df.melt(id_vars='year_month', var_name='category', value_name='amount')
+        df_long = df.melt(id_vars='年月', var_name='カテゴリ', value_name='金額')
+
         # グラフの作成
         chart = alt.Chart(df_long).mark_line(point=True).encode(
-            x='year_month',
-            y='amount',
-            color='category',
-            tooltip=['year_month', 'category', 'amount']
+            x='年月',
+            y='金額',
+            color='カテゴリ',
+            tooltip=['年月', 'カテゴリ', '金額']
         # ).properties(
         #     title='Savings Data'
         ).interactive()
