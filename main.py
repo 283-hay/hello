@@ -11,7 +11,7 @@ key = "isNotLoggedIn"
 default_date = datetime.date.today()
 
 # アプリの起動時にデータベースを初期化
-# db.initialize_database()
+db.initialize_database()
 
 # secrets.tomlから夫のkeyを取得
 keys = st.secrets["husband"]
