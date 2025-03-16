@@ -1,15 +1,14 @@
-# from tkinter import X
-import streamlit as st
-# import sqlite3
-from pysqlcipher3 import dbapi2 as sqlite3
+# import streamlit as st
+import sqlite3
+# from pysqlcipher3 import dbapi2 as sqlite3
 import pandas as pd
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
 
 # secrets.tomlからkeyを取得
-keys = st.secrets["sqlite"]
-sqlite_key = keys.get('key')
-print(sqlite_key)
+# keys = st.secrets["sqlite"]
+# sqlite_key = keys.get('key')
+# print(sqlite_key)
 
 #####
 # データベース連の定義
@@ -18,7 +17,7 @@ print(sqlite_key)
 # データベース接続関数
 def get_connection():
     conn = sqlite3.connect('money.db')
-    conn.execute(f"PRAGMA key = '{sqlite_key}';")  # パスワードを使用して複合
+    # conn.execute(f"PRAGMA key = '{sqlite_key}';")  # パスワードを使用して複合
     return conn
 
 # データベースとテーブルを初期化する関数
