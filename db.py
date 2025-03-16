@@ -1,7 +1,7 @@
 # from tkinter import X
 import streamlit as st
-import sqlite3
-# from pysqlcipher3 import dbapi2 as sqlite3
+# import sqlite3
+from pysqlcipher3 import dbapi2 as sqlite3
 import pandas as pd
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
